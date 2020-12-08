@@ -8,6 +8,9 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Input;
+using System.Diagnostics;
+using Amplifier.OpenCL;
+
 
 namespace MandelWindow
 {
@@ -16,10 +19,17 @@ namespace MandelWindow
         static WriteableBitmap bitmap;
         static Window windows;
         static Image image;
+        static bool parallel = false;
 
         [STAThread]
         static void Main(string[] args)
         {
+            try
+            {
+                Boolean.TryParse(args[0], out parallel);
+            }
+            catch { };
+
             image = new Image();
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
             RenderOptions.SetEdgeMode(image, EdgeMode.Aliased);
@@ -80,7 +90,7 @@ namespace MandelWindow
             mandelCenterY = mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / bitmap.PixelHeight);
             mandelWidth /= 2.0;
             mandelHeight /= 2.0;
-           
+
             UpdateMandel();
         }
 
@@ -127,6 +137,30 @@ namespace MandelWindow
 
         public static void UpdateMandel()
         {
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
+            if (parallel)
+            {
+                ParallelisedMandel();
+            }
+
+            else
+            {
+                UnParallelisedMandel();
+            }
+            stopWatch.Stop();
+            TimeSpan ts = stopWatch.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            Console.WriteLine("RunTime: " + elapsedTime);
+        }
+
+        public static void ParallelisedMandel()
+        {
+
+        }
+
+        public static void UnParallelisedMandel()
+        {
             try
             {
                 // Reserve the back buffer for updates.
@@ -170,6 +204,7 @@ namespace MandelWindow
                 bitmap.Unlock();
             }
         }
+
         public static int IterCount(double cx, double cy)
         {
             int result = 0;
@@ -289,4 +324,9 @@ namespace MandelWindow
             return i;
         }
     }
+    class Kernels : OpenCLFunctions
+    {
+        [OpenCLKernel]
+    }
 }
+
