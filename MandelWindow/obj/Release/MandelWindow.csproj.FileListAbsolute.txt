@@ -1,0 +1,7 @@
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\obj\Release\MandelWindow.csprojAssemblyReference.cache
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\obj\Release\MandelWindow.csproj.CoreCompileInputs.cache
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\bin\Release\MandelWindow.exe.config
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\bin\Release\MandelWindow.exe
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\bin\Release\MandelWindow.pdb
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\obj\Release\MandelWindow.exe
+C:\Users\Hakan\source\repos\MandelWindow\MandelWindow\obj\Release\MandelWindow.pdb
