@@ -10,26 +10,21 @@ using System.Windows.Media.Imaging;
 using System.Windows.Input;
 using System.Diagnostics;
 using Amplifier.OpenCL;
-
+using Amplifier;
 
 namespace MandelWindow
 {
     class Program
     {
         static WriteableBitmap bitmap;
+        static dynamic exec;
         static Window windows;
         static Image image;
-        static bool parallel = false;
+        static bool parallel = true;
 
         [STAThread]
         static void Main(string[] args)
         {
-            try
-            {
-                Boolean.TryParse(args[0], out parallel);
-            }
-            catch { };
-
             image = new Image();
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
             RenderOptions.SetEdgeMode(image, EdgeMode.Aliased);
@@ -38,9 +33,10 @@ namespace MandelWindow
             windows.Content = image;
             windows.Show();
 
-            bitmap = new WriteableBitmap(
-                (int)windows.ActualWidth,
-                (int)windows.ActualHeight,
+            //(int)windows.ActualWidth,
+            //(int)windows.ActualHeight,
+
+            bitmap = new WriteableBitmap(200, 200,
                 96,
                 96,
                 PixelFormats.Bgr32,
@@ -135,32 +131,38 @@ namespace MandelWindow
 
         public static int mandelDepth = 360;
 
+        //public static void UpdateMandel()
+        //{
+        //    Stopwatch stopWatch = new Stopwatch();
+        //    stopWatch.Start();
+        //    if (parallel)
+        //    {
+        //        ParallelisedMandel();
+        //    }
+
+        //    else
+        //    {
+        //        UnParallelisedMandel();
+        //    }
+        //    stopWatch.Stop();
+        //    TimeSpan ts = stopWatch.Elapsed;
+        //    string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+        //    Console.WriteLine("RunTime: " + elapsedTime);
+        //}
+                
         public static void UpdateMandel()
         {
-            Stopwatch stopWatch = new Stopwatch();
-            stopWatch.Start();
+            // iter count ghär
+            int[] values = new int[bitmap.PixelHeight * bitmap.PixelWidth];
             if (parallel)
             {
-                ParallelisedMandel();
+                OpenCLCompiler compiler = new OpenCLCompiler();
+                compiler.UseDevice(0);
+                compiler.CompileKernel(typeof(Kernel));
+                exec = compiler.GetExec();
+
+                exec.ParallelIter(mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
             }
-
-            else
-            {
-                UnParallelisedMandel();
-            }
-            stopWatch.Stop();
-            TimeSpan ts = stopWatch.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
-            Console.WriteLine("RunTime: " + elapsedTime);
-        }
-
-        public static void ParallelisedMandel()
-        {
-
-        }
-
-        public static void UnParallelisedMandel()
-        {
             try
             {
                 // Reserve the back buffer for updates.
@@ -179,7 +181,16 @@ namespace MandelWindow
                             pBackBuffer += row * bitmap.BackBufferStride;
                             pBackBuffer += column * 4;
 
-                            int light = IterCount(mandelCenterX - mandelWidth + column * ((mandelWidth * 2.0) / bitmap.PixelWidth), mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / bitmap.PixelHeight));
+                            // läs i array här
+                            int light;
+                            if (parallel)
+                            {
+                                //Console.WriteLine($"{values.Length} Values.Length");
+                                //Console.WriteLine($"{(column * bitmap.PixelWidth + row)}");
+                                light = values[column * bitmap.PixelWidth + row];
+                            }
+                            else
+                                light = IterCount(mandelCenterX - mandelWidth + column * ((mandelWidth * 2.0) / bitmap.PixelWidth), mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / bitmap.PixelHeight));
 
                             int R, G, B;
                             HsvToRgb(light, 1.0, light < mandelDepth ? 1.0 : 0.0, out R, out G, out B);
@@ -223,7 +234,7 @@ namespace MandelWindow
             return result;
         }
 
-        static void HsvToRgb(double h, double S, double V, out int r, out int g, out int b)
+        public static void HsvToRgb(double h, double S, double V, out int r, out int g, out int b)
         {
             double H = h;
             while (H < 0) { H += 360; };
@@ -324,9 +335,34 @@ namespace MandelWindow
             return i;
         }
     }
-    class Kernels : OpenCLFunctions
+
+    class Kernel : OpenCLFunctions
     {
         [OpenCLKernel]
+        void ParallelIter(double mandelCenterX, double mandelCenterY, double mandelWidth, double mandelHeight, int PixelWidth, int PixelHeight, double mandelDepth, [Global] int[] values)
+        {
+            int id = get_global_id(0);
+            int column = id % PixelWidth;
+            int row = id / PixelWidth;
+            double cx = mandelCenterX - mandelWidth + column * ((mandelWidth * 2.0) / PixelWidth);
+            double cy = mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / PixelHeight);
+
+            int result = 0;
+            double x = 0.0f;
+            double y = 0.0f;
+            double xx = 0.0f, yy = 0.0;
+            while (xx + yy <= 4.0 && result < mandelDepth) // are we out of control disk?
+            {
+                xx = x * x;
+                yy = y * y;
+                double xtmp = xx - yy + cx;
+                y = 2.0f * x * y + cy; // computes z^2 + c
+                x = xtmp;
+                result++;
+            }
+
+            values[id] = result;
+        }
     }
 }
 
