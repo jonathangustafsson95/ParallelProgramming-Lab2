@@ -11,6 +11,9 @@ using System.Windows.Input;
 using System.Diagnostics;
 using Amplifier.OpenCL;
 using Amplifier;
+using System.IO;
+using CsvHelper;
+using System.Globalization;
 
 namespace MandelWindow
 {
@@ -25,18 +28,23 @@ namespace MandelWindow
         [STAThread]
         static void Main(string[] args)
         {
+
+
             image = new Image();
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
             RenderOptions.SetEdgeMode(image, EdgeMode.Aliased);
 
             windows = new Window();
             windows.Content = image;
+
+            windows.KeyDown += new KeyEventHandler(windows_KeyDown);
+
             windows.Show();
 
-            //(int)windows.ActualWidth,
-            //(int)windows.ActualHeight,
 
-            bitmap = new WriteableBitmap(200, 200,
+            bitmap = new WriteableBitmap(
+                (int)windows.ActualWidth,
+                (int)windows.ActualHeight,
                 96,
                 96,
                 PixelFormats.Bgr32,
@@ -62,6 +70,26 @@ namespace MandelWindow
 
             Application app = new Application();
             app.Run();
+        }
+
+        static void windows_KeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.P:
+                    parallel = !parallel;
+                    Console.WriteLine($"Parallel variable = {parallel.ToString()}!");
+                    break;
+                case Key.R:
+                    Console.WriteLine("Running experiments, this may take a while.");
+                    RunExperiments();
+                    break;
+
+                default:
+                    Console.WriteLine($"Key '{e.Key}' has no command!");
+                    break;
+            }
+
         }
 
         static void image_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -130,29 +158,12 @@ namespace MandelWindow
         static double mandelHeight = 2.0;
 
         public static int mandelDepth = 360;
-
-        //public static void UpdateMandel()
-        //{
-        //    Stopwatch stopWatch = new Stopwatch();
-        //    stopWatch.Start();
-        //    if (parallel)
-        //    {
-        //        ParallelisedMandel();
-        //    }
-
-        //    else
-        //    {
-        //        UnParallelisedMandel();
-        //    }
-        //    stopWatch.Stop();
-        //    TimeSpan ts = stopWatch.Elapsed;
-        //    string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
-        //    Console.WriteLine("RunTime: " + elapsedTime);
-        //}
-                
-        public static void UpdateMandel()
+               
+        public static TimeSpan UpdateMandel()
         {
-            // iter count ghär
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
+            
             int[] values = new int[bitmap.PixelHeight * bitmap.PixelWidth];
             if (parallel)
             {
@@ -181,13 +192,10 @@ namespace MandelWindow
                             pBackBuffer += row * bitmap.BackBufferStride;
                             pBackBuffer += column * 4;
 
-                            // läs i array här
                             int light;
                             if (parallel)
                             {
-                                //Console.WriteLine($"{values.Length} Values.Length");
-                                //Console.WriteLine($"{(column * bitmap.PixelWidth + row)}");
-                                light = values[column * bitmap.PixelWidth + row];
+                                light = values[row + bitmap.PixelHeight * column];
                             }
                             else
                                 light = IterCount(mandelCenterX - mandelWidth + column * ((mandelWidth * 2.0) / bitmap.PixelWidth), mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / bitmap.PixelHeight));
@@ -214,6 +222,8 @@ namespace MandelWindow
                 // Release the back buffer and make it available for display.
                 bitmap.Unlock();
             }
+            stopWatch.Stop();
+            return stopWatch.Elapsed;
         }
 
         public static int IterCount(double cx, double cy)
@@ -334,6 +344,84 @@ namespace MandelWindow
             if (i > 255) return 255;
             return i;
         }
+
+        public static void RunExperiments()
+        {
+            List<ExperimentResult> results = new List<ExperimentResult>();
+
+            // Iterate through max depth
+            int defaultDepth = mandelDepth;
+            int step = 100;
+            for (int i = 100; i <= 1000; i+=step)
+            {
+                mandelDepth = i;
+                results.Append(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+
+                //parallel = !parallel;
+
+                //results.Append(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+            }
+            //Restore mandelDepth
+            mandelDepth = defaultDepth;
+
+            //// iterate through mandelbrot height/width
+            //double defaultWidthHeight = mandelWidth;
+            //for (double i = 2; i >= 0.1; i/=2)
+            //{
+            //    mandelWidth = i;
+            //    mandelHeight = i;
+            //    results.Append(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+
+            //    //parallel = !parallel;
+
+            //    //results.Append(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+            //}
+            ////Restore dimensions
+            //mandelWidth = defaultWidthHeight;
+            //mandelHeight = defaultWidthHeight;
+
+            //Iterate through amount of pixels
+
+            //WriteableBitmap defaultBitmap = bitmap;
+            //for (int i = 360; i <= 440; i+=80)
+            //{
+            //    bitmap = new WriteableBitmap(
+            //        i,
+            //        i * 9/16,
+            //        96,
+            //        96,
+            //        PixelFormats.Bgr32,
+            //        null);
+            //    results.Append(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
+
+            //    //parallel = !parallel;
+
+            //    //results.Append(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
+            //}
+            //bitmap = defaultBitmap;
+
+            // Write Results to CSV
+            for (int i = 0; i < results.Count; i++)
+            {
+                Console.WriteLine($"Test: {results[i].Test.ToString()}");
+                Console.WriteLine($"Type: {results[i].Type.ToString()}");
+                Console.WriteLine($"MaxDepth: {results[i].MaxDepth.ToString()}");
+                Console.WriteLine($"Dimensions: {results[i].Dimensions.ToString()}");
+                Console.WriteLine($"Pixels: {results[i].Pixels.ToString()}");
+                Console.WriteLine($"Time: {results[i].Time.ToString()}");
+                Console.WriteLine($"--------------------------------------------------------");
+            }
+            WriteToCsv(results);
+        }
+
+        public static void WriteToCsv(List<ExperimentResult> results)
+        {
+            using (var writer = new StreamWriter("challeballe.csv"))
+            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+            {
+                csv.WriteRecords(results);
+            }
+        }
     }
 
     class Kernel : OpenCLFunctions
@@ -342,8 +430,8 @@ namespace MandelWindow
         void ParallelIter(double mandelCenterX, double mandelCenterY, double mandelWidth, double mandelHeight, int PixelWidth, int PixelHeight, double mandelDepth, [Global] int[] values)
         {
             int id = get_global_id(0);
-            int column = id % PixelWidth;
-            int row = id / PixelWidth;
+            int column = id / PixelHeight;
+            int row = id % PixelHeight;
             double cx = mandelCenterX - mandelWidth + column * ((mandelWidth * 2.0) / PixelWidth);
             double cy = mandelCenterY - mandelHeight + row * ((mandelHeight * 2.0) / PixelHeight);
 
@@ -362,6 +450,26 @@ namespace MandelWindow
             }
 
             values[id] = result;
+        }
+    }
+    
+    public class ExperimentResult
+    {
+        public string Test;
+        public string Type;
+        public int MaxDepth;
+        public double Dimensions;
+        public int Pixels;
+        public double Time;
+
+        public ExperimentResult(string test, string type, int maxDepth, double dimension, int pixels, double time)
+        {
+            Test = test;
+            Type = type;
+            MaxDepth = maxDepth;
+            Dimensions = dimension;
+            Pixels = pixels;
+            Time = time;
         }
     }
 }
