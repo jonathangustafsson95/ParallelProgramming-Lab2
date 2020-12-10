@@ -352,7 +352,7 @@ namespace MandelWindow
             // Iterate through max depth
             int defaultDepth = mandelDepth;
             int step = 100;
-            for (int i = 100; i <= 1000; i+=step)
+            for (int i = 100; i <= 2100; i+=step)
             {
                 mandelDepth = i;
                 results.Add(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
@@ -366,15 +366,15 @@ namespace MandelWindow
 
             // iterate through mandelbrot height/width
             double defaultwidthheight = mandelWidth;
-            for (double i = 2; i >= 0.5; i /= 2)
+            for (double i = 2; i >= 0.00000191; i /= 2)
             {
                 mandelWidth = i;
                 mandelHeight = i;
                 results.Add(new ExperimentResult("mandel dimensions", parallel ? "parallel" : "sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
-
-                parallel = !parallel;
+                parallel = false;
 
                 results.Add(new ExperimentResult("mandel dimensions", parallel ? "parallel" : "sequential", mandelDepth, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+                parallel = true;
             }
             //restore dimensions
             mandelWidth = defaultwidthheight;
@@ -383,7 +383,7 @@ namespace MandelWindow
             //iterate through amount of pixels
 
             WriteableBitmap defaultBitmap = bitmap;
-            for (int i = 360; i <= 360; i += 80)
+            for (int i = 360; i <= 1920; i += 80)
             {
                 bitmap = new WriteableBitmap(
                     i,
@@ -394,13 +394,14 @@ namespace MandelWindow
                     null);
                 results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
 
-                parallel = !parallel;
-
+                parallel = false;
                 results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
+                parallel = true;
             }
             bitmap = defaultBitmap;
 
             // Write Results to CSV
+            Console.WriteLine("Done!");
             WriteToCsv(results);
         }
 
