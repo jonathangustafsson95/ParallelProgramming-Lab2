@@ -14,6 +14,7 @@ using Amplifier;
 using System.IO;
 using CsvHelper;
 using System.Globalization;
+using System.Runtime;
 
 namespace MandelWindow
 {
@@ -163,7 +164,7 @@ namespace MandelWindow
         {
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
-            
+
             int[] values = new int[bitmap.PixelHeight * bitmap.PixelWidth];
             if (parallel)
             {
@@ -172,7 +173,10 @@ namespace MandelWindow
                 compiler.CompileKernel(typeof(Kernel));
                 exec = compiler.GetExec();
 
-                exec.ParallelIter(mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
+
+                //exec.ParallelIter(mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
+                compiler.Execute("ParallelIter", mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
+                compiler.Dispose();
             }
             try
             {
@@ -212,6 +216,7 @@ namespace MandelWindow
                             *((int*)pBackBuffer) = color_data;
                         }
                     }
+                    Array.Clear(values, 0, values.Length);
                 }
 
                 // Specify the area of the bitmap that changed.
@@ -355,34 +360,43 @@ namespace MandelWindow
             for (int i = 100; i <= 2100; i+=step)
             {
                 mandelDepth = i;
-                results.Add(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
                 parallel = false;
-
+                Console.WriteLine($"Executing Depth Test, parallel = False, mandelDepth = {i}");
                 results.Add(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+
                 parallel = true;
+                Console.WriteLine($"Executing Depth Test, parallel = True mandelDepth = {i}");
+                results.Add(new ExperimentResult("Depth Test", parallel ? "Parallel" : "Sequential", i, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
             }
             //Restore mandelDepth
             mandelDepth = defaultDepth;
 
             // iterate through mandelbrot height/width
-            double defaultwidthheight = mandelWidth;
+            double defaultWidthHeight = mandelWidth;
             for (double i = 2; i >= 0.00000191; i /= 2)
             {
                 mandelWidth = i;
                 mandelHeight = i;
-                results.Add(new ExperimentResult("mandel dimensions", parallel ? "parallel" : "sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
                 parallel = false;
+                Console.WriteLine($"Executing Dimensions Test, parallel = False, mandelDepth = {i}");
+                results.Add(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
 
-                results.Add(new ExperimentResult("mandel dimensions", parallel ? "parallel" : "sequential", mandelDepth, mandelWidth, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
-                parallel = true;
+                if (i >= 0.625)
+                {
+                    parallel = true;
+                    Console.WriteLine($"Executing Dimensions Test, parallel = True, mandelDepth = {i}");
+                    results.Add(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
+                }
             }
             //restore dimensions
-            mandelWidth = defaultwidthheight;
-            mandelHeight = defaultwidthheight;
+            mandelWidth = defaultWidthHeight;
+            mandelHeight = defaultWidthHeight;
 
             //iterate through amount of pixels
 
             WriteableBitmap defaultBitmap = bitmap;
+            mandelCenterX = -1.25441900889079;
+            mandelCenterY = -0.381432545744887;
             for (int i = 360; i <= 1920; i += 80)
             {
                 bitmap = new WriteableBitmap(
@@ -392,11 +406,13 @@ namespace MandelWindow
                     96,
                     PixelFormats.Bgr32,
                     null);
+                parallel = true;
+                Console.WriteLine($"Executing Pixel Test, parallel = True, Pixels = {i}x{(i * 9/16)}");
                 results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
 
-                parallel = false;
-                results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
                 parallel = true;
+                Console.WriteLine($"Executing Pixel Test, parallel = True, Pixels = {i}x{(i * 9 / 16)}");
+                results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
             }
             bitmap = defaultBitmap;
 
@@ -439,6 +455,7 @@ namespace MandelWindow
                 x = xtmp;
                 result++;
             }
+
 
             values[id] = result;
         }
