@@ -173,7 +173,6 @@ namespace MandelWindow
                 compiler.CompileKernel(typeof(Kernel));
                 exec = compiler.GetExec();
 
-
                 //exec.ParallelIter(mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
                 compiler.Execute("ParallelIter", mandelCenterX, mandelCenterY, mandelWidth, mandelHeight, bitmap.PixelWidth, bitmap.PixelHeight, mandelDepth, values);
                 compiler.Dispose();
@@ -381,12 +380,9 @@ namespace MandelWindow
                 Console.WriteLine($"Executing Dimensions Test, parallel = False, mandelDepth = {i}");
                 results.Add(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
 
-                if (i >= 0.625)
-                {
-                    parallel = true;
-                    Console.WriteLine($"Executing Dimensions Test, parallel = True, mandelDepth = {i}");
-                    results.Add(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
-                }
+                parallel = true;
+                Console.WriteLine($"Executing Dimensions Test, parallel = True, mandelDepth = {i}");
+                results.Add(new ExperimentResult("Mandel Dimensions", parallel ? "Parallel" : "Sequential", mandelDepth, i, bitmap.PixelWidth, UpdateMandel().TotalSeconds));
             }
             //restore dimensions
             mandelWidth = defaultWidthHeight;
@@ -406,7 +402,7 @@ namespace MandelWindow
                     96,
                     PixelFormats.Bgr32,
                     null);
-                parallel = true;
+                parallel = false;
                 Console.WriteLine($"Executing Pixel Test, parallel = True, Pixels = {i}x{(i * 9/16)}");
                 results.Add(new ExperimentResult("Pixels", parallel ? "Parallel" : "Sequential", mandelDepth, mandelWidth, i, UpdateMandel().TotalSeconds));
 
@@ -423,7 +419,7 @@ namespace MandelWindow
 
         public static void WriteToCsv(List<ExperimentResult> results)
         {
-            using (var writer = new StreamWriter("challeballe.csv"))
+            using (var writer = new StreamWriter("data.csv"))
             using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
             {
                 csv.WriteRecords(results);
